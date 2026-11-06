@@ -1,0 +1,19 @@
+# Python virtual environments
+.venv/
+.venv-webcam/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
