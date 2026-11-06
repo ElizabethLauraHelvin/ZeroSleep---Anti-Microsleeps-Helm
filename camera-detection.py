@@ -26,9 +26,7 @@ time.sleep(2)  # Tunggu ESP32 selesai restart
 last_serial_send = 0.0
 SERIAL_SEND_INTERVAL = 0.1  # Kirim setiap 100 ms
 
-# ==========================================
 # CONFIGURATION
-# ==========================================
 MODEL_PATH = "Drowsiness_Detection_model_CNN.keras"
 DB_PATH = "helmet_data.db"
 
@@ -69,9 +67,7 @@ def read_esp32_serial():
             break
 
 
-# ==========================================
 # SQLITE DATABASE
-# ==========================================
 def init_database():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
@@ -212,9 +208,8 @@ serial_thread = threading.Thread(
 )
 serial_thread.start()
 
-# ==========================================
+
 # LOAD MODEL
-# ==========================================
 print("Loading model...")
 
 model = tf.keras.models.load_model(MODEL_PATH)
@@ -224,9 +219,7 @@ print("Input shape:", model.input_shape)
 print("Output shape:", model.output_shape)
 print("Class mapping: 0 = Opened, 1 = Closed")
 
-# ==========================================
 # OPEN CAMERA
-# ==========================================
 cap = cv2.VideoCapture(CAMERA_INDEX)
 
 if not cap.isOpened():
@@ -239,9 +232,8 @@ mp_face_mesh = mp.solutions.face_mesh
 closed_start = None
 last_db_save = 0.0
 
-# ==========================================
+
 # CROP EYE
-# ==========================================
 def crop_eye(frame, landmarks, indices):
     h, w = frame.shape[:2]
 
@@ -275,9 +267,7 @@ def crop_eye(frame, landmarks, indices):
 
     return frame[y1:y2, x1:x2]
 
-# ==========================================
 # PREPROCESSING
-# ==========================================
 def preprocess_eye(eye):
     eye_rgb = cv2.cvtColor(eye, cv2.COLOR_BGR2RGB)
 
@@ -295,9 +285,7 @@ def preprocess_eye(eye):
 
     return eye_resized, x
 
-# ==========================================
 # MAIN LOOP
-# ==========================================
 try:
     with mp_face_mesh.FaceMesh(
         max_num_faces=1,
@@ -370,9 +358,8 @@ try:
                         2
                     )
 
-                # ==================================
+
                 # COMBINE BOTH EYES
-                # ==================================
                 if len(eye_predictions) == 2:
                     avg_probs = np.mean(eye_predictions, axis=0)
 
@@ -384,11 +371,10 @@ try:
                     elif opened_prob >= CONFIDENCE_THRESHOLD:
                         label = "Opened"
                     else:
-                        label = "Closed"  # Uncertain dianggap Closed
+                        label = "Closed"
 
-                    # ==================================
                     # CLOSED DURATION
-                    # ==================================
+
                     if label == "Closed":
                         if closed_start is None:
                             closed_start = current_time
@@ -398,9 +384,8 @@ try:
                         closed_start = None
                         duration = 0.0
 
-                    # ==================================
+          
                     # STATUS
-                    # ==================================
                     alert_triggered = (
                         duration >= CLOSED_THRESHOLD
                     )
@@ -420,9 +405,7 @@ try:
                         status = "Uncertain"
                         color = (0, 255, 255)
 
-                    # ==================================
                     # SAVE TO SQLITE EVERY 1 SECOND
-                    # ==================================
                     if (
                         current_time - last_db_save
                         >= DB_SAVE_INTERVAL
@@ -450,9 +433,7 @@ try:
                         except sqlite3.Error as e:
                             print(f"Database error: {e}")
 
-                    # ==================================
                     # DISPLAY RESULTS
-                    # ==================================
                     cv2.putText(
                         frame,
                         f"Prediction: {label}",
@@ -529,9 +510,7 @@ try:
                     2
                 )
 
-            # ==========================================
             # SEND EYE ALERT TO ESP32
-            # ==========================================
             if current_time - last_serial_send >= SERIAL_SEND_INTERVAL:
                 timestamp = datetime.now().isoformat(
                     timespec="milliseconds"

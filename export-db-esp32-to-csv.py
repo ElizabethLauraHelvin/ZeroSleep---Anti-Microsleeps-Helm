@@ -6,19 +6,16 @@ EXCEL_PATH = "helmet_data.xlsx"
 
 with sqlite3.connect(DB_PATH) as conn:
 
-    # Dataset Eye Detection
     eye_df = pd.read_sql_query(
         "SELECT * FROM eye_detection",
         conn
     )
 
-    # Dataset ESP32 Sensor
     sensor_df = pd.read_sql_query(
         "SELECT * FROM esp32_sensor_data",
         conn
     )
 
-# Export kedua dataset ke Excel
 with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl") as writer:
 
     eye_df.to_excel(

@@ -278,7 +278,6 @@ void setup() {
   pinMode(VIB_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 
-  // Default output OFF; vibrator/buzzer are configured active-LOW.
   allOff();
 
   // ----- MAX30102 -----
