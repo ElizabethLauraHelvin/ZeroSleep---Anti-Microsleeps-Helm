@@ -25,6 +25,21 @@ function isOn(value) {
   );
 }
 
+function connectionLabel(status) {
+  if (status === "CONNECTED") return "CONNECTED";
+  if (status === "DISCONNECTED") return "DISCONNECTED";
+  if (status === "NO DATA") return "NO DATA";
+  return "UNKNOWN";
+}
+
+function eyeLabel(overview) {
+  const raw = String(overview?.eye_status_raw ?? overview?.eye_status ?? "").toUpperCase();
+  if (["OPEN", "OPENED", "AWAKE", "NORMAL"].includes(raw)) return "OPEN";
+  if (["CLOSED"].includes(raw)) return "CLOSED";
+  if (["DROWSY", "SLEEPY", "MENGANTUK"].includes(raw)) return "CLOSED";
+  return "UNKNOWN";
+}
+
 function StatusPill({ status }) {
   const type =
     status === "DROWSY"
@@ -213,26 +228,56 @@ function App() {
               unit="°"
             />
             <MetricCard label="Nods / 7 detik" value={overview?.nods_7s} />
-            <MetricCard label="Deteksi Kamera" value={overview?.eye_status} />
+            <MetricCard label="Deteksi Kamera" value={eyeLabel(overview)} />
           </div>
         </section>
 
         <section className="section">
           <div className="section-heading">
-            <h3>Output Perangkat</h3>
+            <h3>Sensor Monitoring</h3>
+            <span className="live-label"><i /> REAL-TIME</span>
           </div>
+          <div className="sensor-grid">
+            {[
+              ["Eye Detection", eyeLabel(overview)],
+              ["Camera", connectionLabel(overview?.sensor_components?.camera)],
+              ["MPU6050", connectionLabel(overview?.sensor_components?.mpu6050)],
+              ["MAX30102", connectionLabel(overview?.sensor_components?.max30102)],
+            ].map(([label, value]) => {
+              const good = value === "OPEN" || value === "CONNECTED";
+              const warning = value === "CLOSED";
+              return (
+                <article className="sensor-card" key={label}>
+                  <div className="sensor-info"><strong>{label}</strong></div>
+                  <span className={`device-state ${good ? "active" : ""} ${warning ? "warning" : ""}`}>
+                    {value}
+                  </span>
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
+        <section className="section">
+          <div className="section-heading">
+            <h3>Actuator Status</h3>
+          </div>
           <div className="device-grid">
             {[
               ["Buzzer", overview?.buzzer_status],
               ["Vibrator", overview?.vibrator_status],
-            ].map(([label, value]) => (
-              <article className="device-card" key={label}>
-                <div className="device-info">
-                  <strong>{label}</strong>
-                </div>
-              </article>
-            ))}
+            ].map(([label, value]) => {
+              const active = isOn(value);
+              const known = value !== null && value !== undefined && value !== "";
+              return (
+                <article className="device-card" key={label}>
+                  <div className="device-info"><strong>{label}</strong></div>
+                  {/* <span className={`device-state ${active ? "active" : ""} ${!known ? "unknown" : ""}`}>
+                    {known ? (active ? "ON" : "OFF") : "UNKNOWN"}
+                  </span> */}
+                </article>
+              );
+            })}
           </div>
         </section>
 

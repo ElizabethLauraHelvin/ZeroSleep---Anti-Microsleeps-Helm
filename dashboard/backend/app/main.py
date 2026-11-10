@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import connect, tables as get_tables, columns as get_columns, find_table, rows as rows_as_dicts, DB_PATH
 import os
 
+DEVICE_STALE_SECONDS = int(os.getenv("DEVICE_STALE_SECONDS", "10"))
+
 app = FastAPI(title="Helm Anti-Ngantung API", version="1.1.0")
 origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if x.strip()]
 app.add_middleware(
@@ -70,6 +72,22 @@ def parse_dt(value):
     except (ValueError, TypeError):
         return None
 
+def is_recent(row, stale_seconds=DEVICE_STALE_SECONDS):
+    """Treat a device as online only when its latest reading is recent."""
+    timestamp = val(row, ["timestamp", "created_at", "datetime", "time"])
+    if not timestamp:
+        return False
+    try:
+        dt = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+        # Compare timezone-aware values; naive DB timestamps are interpreted
+        # in the backend host's local timezone.
+        dt = dt.astimezone()
+        now = datetime.now().astimezone()
+    except (ValueError, TypeError):
+        return False
+    age = (now - dt).total_seconds()
+    return 0 <= age <= stale_seconds
+
 def episode_events(rows):
     """Count transition into DROWSY, not every repeated sensor sample."""
     chronological = list(reversed(rows))
@@ -108,22 +126,41 @@ def overview():
     try:
         sensor = sensors[0] if sensors else {}
         eye = eyes[0] if eyes else {}
+
+        # A database row alone does not prove that the hardware is online.
+        # Only readings received within DEVICE_STALE_SECONDS count as live.
+        sensor_fresh = bool(sensor) and is_recent(sensor)
+        camera_fresh = bool(eye) and is_recent(eye)
+
         eye_raw = val(eye, ["eye_status", "status", "prediction", "result", "alert_triggered"])
-        eye_status = normalize_status(eye_raw)
+        eye_status = normalize_status(eye_raw) if camera_fresh else "UNKNOWN"
+
+        mpu_has_reading = (
+            val(sensor, ["head_angle", "angle", "sudut", "relative_angle"]) is not None
+            or val(sensor, ["nods_7s", "nod_count", "nods"]) is not None
+        )
+        max30102_has_reading = val(sensor, ["heart_rate_bpm", "heart_rate", "bpm", "hr"]) is not None
+
         return {
-            "status": sensor_status(sensor),
-            "status_raw": val(sensor, ["drowsiness_status", "status"]),
-            "heart_rate": val(sensor, ["heart_rate_bpm", "heart_rate", "bpm", "hr"]),
-            "heart_rate_status": val(sensor, ["heart_rate_status"]),
-            "head_angle": val(sensor, ["head_angle", "angle", "sudut", "relative_angle"]),
-            "nods_7s": val(sensor, ["nods_7s", "nod_count", "nods"]),
+            "status": sensor_status(sensor) if sensor_fresh else "UNKNOWN",
+            "status_raw": val(sensor, ["drowsiness_status", "status"]) if sensor_fresh else None,
+            "heart_rate": val(sensor, ["heart_rate_bpm", "heart_rate", "bpm", "hr"]) if sensor_fresh else None,
+            "heart_rate_status": val(sensor, ["heart_rate_status"]) if sensor_fresh else None,
+            "head_angle": val(sensor, ["head_angle", "angle", "sudut", "relative_angle"]) if sensor_fresh else None,
+            "nods_7s": val(sensor, ["nods_7s", "nod_count", "nods"]) if sensor_fresh else None,
             "eye_status": eye_status,
-            "eye_status_raw": eye_raw,
-            "buzzer_status": val(sensor, ["buzzer_status", "buzzer"]),
-            "vibrator_status": val(sensor, ["vibrator_status", "vibration_status", "vibrator"]),
+            "eye_status_raw": eye_raw if camera_fresh else None,
+            "buzzer_status": val(sensor, ["buzzer_status", "buzzer"]) if sensor_fresh else None,
+            "vibrator_status": val(sensor, ["vibrator_status", "vibration_status", "vibrator"]) if sensor_fresh else None,
             "timestamp": val(sensor, ["timestamp", "created_at", "datetime", "time"]),
-            "sensor_connected": bool(sensor),
-            "camera_data_available": bool(eyes),
+            "sensor_connected": sensor_fresh,
+            "camera_data_available": camera_fresh,
+            "sensor_components": {
+                "camera": "CONNECTED" if camera_fresh else "DISCONNECTED",
+                "mpu6050": "CONNECTED" if sensor_fresh and mpu_has_reading else "DISCONNECTED",
+                "max30102": "CONNECTED" if sensor_fresh and max30102_has_reading else "DISCONNECTED"
+            },
+            "device_stale_seconds": DEVICE_STALE_SECONDS,
             "database_tables": tables,
             "sensor_table": sensor_table,
             "eye_table": eye_table

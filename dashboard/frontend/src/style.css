@@ -65,6 +65,9 @@ button { font: inherit; }
 .live-label, .period-label, .record-count { display: inline-flex; align-items: center; gap: 6px; color: #bd5790; font-size: 10px; font-weight: 700; background: #fce7f3; padding: 6px 9px; border-radius: 30px; }
 .live-label i { width: 6px; height: 6px; border-radius: 50%; background: #ec4899; animation: pulse 1.5s infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
+.sensor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; }
+.sensor-card { background: #ffffffdf; border: 1px solid #f3dce8; border-radius: 16px; box-shadow: 0 8px 28px #9d41600a; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; }
+.sensor-info strong { font-size: 12px; line-height: 1.3; }
 .device-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; }
 .device-card { padding: 14px; display: flex; justify-content: space-between; align-items: center; }
 .device-info { display: flex; align-items: center; gap: 12px; }
@@ -73,6 +76,8 @@ button { font: inherit; }
 .device-info small { font-size: 11px; line-height: 1.15; margin-top: 2px; display: block; color: #a28d9c; }
 .device-state { font-size: 9px; font-weight: 800; padding: 5px 9px; border-radius: 20px; background: #f1f5f9; color: #64748b; }
 .device-state.active { background: #dcfce7; color: #15803d; }
+.device-state.warning { background: #fee2e2; color: #b91c1c; }
+.device-state.unknown { background: #f1f5f9; color: #64748b; }
 .analytics-summary { padding: 15px 18px; display: flex; align-items: center; gap: 15px; margin-bottom: 13px; }
 .summary-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #db2777; background: transparent; border: 1.5px solid #f4b8d4; flex-shrink: 0; }
 .analytics-summary strong { display: block; font: 800 31px 'Plus Jakarta Sans'; color: #be185d; line-height: 1; }
@@ -121,13 +126,13 @@ tbody tr:last-child td { border-bottom: 0; }
 .drowsy-mode .header, .drowsy-mode .footer { border-color: #ffffff35; }
 .drowsy-mode .brand h1, .drowsy-mode .brand h1 span, .drowsy-mode .page-heading h2,
 .drowsy-mode .section-heading h3, .drowsy-mode .card-heading h3, .drowsy-mode .metric-card strong,
-.drowsy-mode .device-info strong, .drowsy-mode .chart-title h4, .drowsy-mode .analytics-summary strong,
+.drowsy-mode .device-info strong, .drowsy-mode .sensor-info strong, .drowsy-mode .chart-title h4, .drowsy-mode .analytics-summary strong,
 .drowsy-mode .analytics-summary span { color: #fff; }
 .drowsy-mode .overline, .drowsy-mode .page-heading p, .drowsy-mode .last-updated,
 .drowsy-mode .subtext, .drowsy-mode .connection-list, .drowsy-mode .metric-card p,
 .drowsy-mode .device-info small, .drowsy-mode .chart-title p, .drowsy-mode .chart-note,
 .drowsy-mode .analytics-summary small, .drowsy-mode .footer { color: #fecaca; }
-.drowsy-mode .card, .drowsy-mode .metric-card, .drowsy-mode .device-card {
+.drowsy-mode .card, .drowsy-mode .metric-card, .drowsy-mode .device-card, .drowsy-mode .sensor-card {
   background: #7f1d1de8; border-color: #fca5a555; box-shadow: 0 0 25px #ef444422;
 }
 .drowsy-mode .brand-logo { color: #fecaca; }
@@ -144,6 +149,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .dashboard-content { padding: 20px; }
   .overview-layout { grid-template-columns: 1fr; }
   .device-grid, .charts-grid { grid-template-columns: 1fr; }
+  .sensor-grid { grid-template-columns: repeat(2, 1fr); }
   .header { align-items: flex-start; flex-direction: column; }
   .header-actions { width: 100%; justify-content: space-between; }
 }
@@ -154,6 +160,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .metric-card strong { font-size: 18px; }
   .brand h1 { font-size: 18px; }
   .connection-list { flex-direction: column; gap: 8px; }
+  .sensor-grid { grid-template-columns: 1fr; }
   .chart-area { height: 205px; }
 }
 

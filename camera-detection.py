@@ -1,4 +1,4 @@
-
+# Import library untuk pemrosesan video, machine learning, database, komunikasi serial, dan pengolahan data.
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -12,24 +12,29 @@ import threading
 import re
 
 # ESP32 SERIAL CONFIGURATION
+# Mengatur port dan kecepatan komunikasi serial antara Python dan ESP32.
 SERIAL_PORT = "COM11"  # Ganti sesuai port ESP32 di komputer
 SERIAL_BAUD = 115200
 
+# Membuka koneksi serial ke ESP32 agar Python dapat menerima dan mengirim data.
 esp32 = serial.Serial(
     SERIAL_PORT,
     SERIAL_BAUD,
     timeout=0.1
 )
 
+# Memberi waktu ESP32 untuk menyelesaikan proses restart setelah koneksi dibuka.
 time.sleep(2)  # Tunggu ESP32 selesai restart
 
 last_serial_send = 0.0
 SERIAL_SEND_INTERVAL = 0.1  # Kirim setiap 100 ms
 
 # CONFIGURATION
+# Menentukan lokasi file model CNN dan database SQLite yang digunakan program.
 MODEL_PATH = "Drowsiness_Detection_model_CNN.keras"
 DB_PATH = "helmet_data.db"
 
+# Menentukan ukuran gambar input, indeks kamera, batas durasi mata tertutup, dan ambang confidence.
 IMG_SIZE = 64
 CAMERA_INDEX = 1
 
@@ -42,6 +47,7 @@ DB_SAVE_INTERVAL = 1.0  # Simpan setiap 1 detik
 # 0 = Opened
 # 1 = Closed
 
+# Menentukan indeks landmark MediaPipe untuk mengambil area mata kiri dan kanan.
 EYE_LANDMARKS = [
     [33, 133, 160, 159, 158, 144, 145, 153],
     [362, 263, 387, 386, 385, 373, 374, 380]
@@ -49,9 +55,10 @@ EYE_LANDMARKS = [
 
 EYE_NAMES = ["Left Eye Input", "Right Eye Input"]
 
-
+# Membaca pesan dari ESP32 secara terus-menerus melalui koneksi serial.
 def read_esp32_serial():
     while True:
+        # Memulai proses deteksi mata secara real-time menggunakan kamera dan MediaPipe Face Mesh.
         try:
             if esp32.in_waiting > 0:
                 message = esp32.readline().decode(
@@ -66,8 +73,8 @@ def read_esp32_serial():
             print(f"Serial read error: {e}")
             break
 
-
 # SQLITE DATABASE
+# Membuat tabel database untuk menyimpan hasil deteksi mata dan data sensor ESP32.
 def init_database():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
@@ -96,6 +103,7 @@ def init_database():
             )
         """)
 
+# Menyimpan hasil deteksi mata, probabilitas kelas, durasi mata tertutup, dan status peringatan.
 def save_detection(
     eye_status,
     opened_prob,
@@ -123,12 +131,13 @@ def save_detection(
             int(alert_triggered)
         ))
 
-
+# Memproses pesan sensor dari ESP32 dan menyimpan data yang berhasil dibaca ke SQLite.
 def save_esp32_record(message):
     """Simpan data sensor ESP32 ke SQLite."""
     if "Sudut:" not in message or "Nods/7s:" not in message:
         return
 
+    # Memulai proses deteksi mata secara real-time menggunakan kamera dan MediaPipe Face Mesh.
     try:
         parts = [part.strip() for part in message.split("|")]
 
@@ -150,7 +159,6 @@ def save_esp32_record(message):
             r"Status:\s*([^|]+)",
             message
         )
-
 
         # Tampilkan pesan yang tidak cocok agar formatnya bisa diperiksa.
         if not all([angle_match, nods_match, status_match]):
@@ -198,20 +206,21 @@ def save_esp32_record(message):
     except (sqlite3.Error, ValueError) as e:
         print(f"[DATABASE ESP32 ERROR] {e}")
 
-
+# Menyiapkan database sebelum proses deteksi dan penerimaan data sensor dimulai.
 init_database()
 print(f"SQLite database ready: {DB_PATH}")
 
+# Menjalankan pembacaan serial pada thread terpisah agar tidak menghambat proses kamera.
 serial_thread = threading.Thread(
     target=read_esp32_serial,
     daemon=True
 )
 serial_thread.start()
 
-
 # LOAD MODEL
 print("Loading model...")
 
+# Memuat model CNN yang sudah dilatih untuk mengenali mata terbuka dan tertutup.
 model = tf.keras.models.load_model(MODEL_PATH)
 
 print("Model loaded.")
@@ -220,6 +229,7 @@ print("Output shape:", model.output_shape)
 print("Class mapping: 0 = Opened, 1 = Closed")
 
 # OPEN CAMERA
+# Mengaktifkan kamera sebagai sumber video untuk deteksi mata secara real-time.
 cap = cv2.VideoCapture(CAMERA_INDEX)
 
 if not cap.isOpened():
@@ -228,12 +238,13 @@ if not cap.isOpened():
         "Coba ubah CAMERA_INDEX menjadi 1."
     )
 
+# Mengakses MediaPipe Face Mesh untuk mendeteksi titik-titik landmark pada wajah.
 mp_face_mesh = mp.solutions.face_mesh
 closed_start = None
 last_db_save = 0.0
 
-
 # CROP EYE
+# Mengambil potongan gambar mata berdasarkan koordinat landmark dari MediaPipe.
 def crop_eye(frame, landmarks, indices):
     h, w = frame.shape[:2]
 
@@ -268,6 +279,7 @@ def crop_eye(frame, landmarks, indices):
     return frame[y1:y2, x1:x2]
 
 # PREPROCESSING
+# Menyesuaikan format gambar mata agar sesuai dengan input model CNN.
 def preprocess_eye(eye):
     eye_rgb = cv2.cvtColor(eye, cv2.COLOR_BGR2RGB)
 
@@ -286,6 +298,7 @@ def preprocess_eye(eye):
     return eye_resized, x
 
 # MAIN LOOP
+# Memulai proses deteksi mata secara real-time menggunakan kamera dan MediaPipe Face Mesh.
 try:
     with mp_face_mesh.FaceMesh(
         max_num_faces=1,
@@ -310,8 +323,6 @@ try:
             current_time = time.monotonic()
             alert_for_esp32 = 0
             
-            
-
             if result.multi_face_landmarks:
                 landmarks = (
                     result.multi_face_landmarks[0].landmark
@@ -358,7 +369,6 @@ try:
                         2
                     )
 
-
                 # COMBINE BOTH EYES
                 if len(eye_predictions) == 2:
                     avg_probs = np.mean(eye_predictions, axis=0)
@@ -384,7 +394,6 @@ try:
                         closed_start = None
                         duration = 0.0
 
-          
                     # STATUS
                     alert_triggered = (
                         duration >= CLOSED_THRESHOLD
@@ -410,6 +419,7 @@ try:
                         current_time - last_db_save
                         >= DB_SAVE_INTERVAL
                     ):
+                        # Memulai proses deteksi mata secara real-time menggunakan kamera dan MediaPipe Face Mesh.
                         try:
                             save_detection(
                                 eye_status=label,
@@ -518,6 +528,7 @@ try:
 
                 message = f"EYE,{alert_for_esp32},{timestamp}\n"
 
+                # Memulai proses deteksi mata secara real-time menggunakan kamera dan MediaPipe Face Mesh.
                 try:
                     esp32.write(message.encode("utf-8"))
 
@@ -542,6 +553,7 @@ try:
             elif key == ord("q"):
                 break
 
+# Menutup seluruh resource yang digunakan agar kamera, jendela, dan serial tidak tetap aktif.
 finally:
     cap.release()
     cv2.destroyAllWindows()
